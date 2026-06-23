@@ -1,23 +1,29 @@
-# Step1: Install & Import dependencies
+import os
+from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.prebuilt import create_react_agent
+import logging
+
+# Tools imports (Ensuring absolute sync with project infrastructure)
 from arxiv_tool import arxiv_search
 from read_pdf import read_pdf
 from write_pdf import render_latex_pdf
-import os
-from dotenv import load_dotenv
 
+# Initialize environment and production logs
 load_dotenv()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("ai_researcher_prod")
 
-# Step2: Setup LLM and tools
+# Step 1: Setup Core Academic Tools Pipeline
 tools = [arxiv_search, read_pdf, render_latex_pdf]
-model = ChatGoogleGenerativeAI(model="gemini-1.5-flash", api_key=os.getenv("GOOGLE_API_KEY"))
 
-# Step3: Create the ReAct agent graph
-graph = create_react_agent(model, tools=tools)
+# Step 2: Initialize Enterprise-Grade LLM (Gemini 1.5 Flash)
+model = ChatGoogleGenerativeAI(
+    model="gemini-1.5-flash", 
+    api_key=os.getenv("GOOGLE_API_KEY")
+)
 
-# Step4: Run the agent with an initial prompt
-
+# Step 3: Define Global System Prompt for Complex Research Orchestration
 INITIAL_PROMPT = """
 You are an expert researcher in the fields of physics, mathematics,
 computer science, quantitative biology, quantitative finance, statistics,
@@ -40,23 +46,13 @@ decide what one you should write a paper about.
 
 Finally, I'll ask you to go ahead and write the paper. Make sure that you
 include mathematical equations in the paper. Once it's complete, you should
-render it as a LaTeX PDF. When you give papers references, always attatch the pdf links to the paper"""
+render it as a LaTeX PDF. When you give papers references, always attatch the pdf links to the paper.
+"""
 
+# Step 4: Compile the ReAct Agent Graph for Streamlit Production Pipeline
+graph = create_react_agent(model, tools=tools, state_modifier=INITIAL_PROMPT)
 
-def print_stream(stream):
-    for s in stream:
-        message = s["messages"][-1]
-        print(f"Message received: {message.content[:200]}...")
-        message.pretty_print()
+# Step 5: Strict Module Exports & Verification Logging
+__all__ = ["graph", "INITIAL_PROMPT"]
 
-while True:
-    user_input = input("User: ")
-    if user_input:
-        messages = [
-                    {"role": "system", "content": INITIAL_PROMPT},
-                    {"role": "user", "content": user_input}
-                ]
-        input_data = {
-            "messages" : messages
-        }
-        print_stream(graph.stream(input_data, stream_mode="values"))
+logger.info("Academic Research ReAct Graph successfully compiled for Streamlit Cloud production pipeline.")
