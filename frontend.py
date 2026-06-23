@@ -11,7 +11,7 @@ from fpdf import FPDF
 from langchain_core.messages import AIMessage
 from pypdf import PdfReader
 
-from ai_researcher_2 import INITIAL_PROMPT, build_config, graph
+from ai_researcher import INITIAL_PROMPT, build_config, graph
 from arxiv_tool import clear_arxiv_cache, search_arxiv_papers
 
 
