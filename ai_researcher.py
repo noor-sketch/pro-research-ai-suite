@@ -49,10 +49,7 @@ include mathematical equations in the paper. Once it's complete, you should
 render it as a LaTeX PDF. When you give papers references, always attatch the pdf links to the paper.
 """
 
-# Step 4: Compile the ReAct Agent Graph for Streamlit Production Pipeline
+# Step 4: Compile the ReAct Agent Graph for Streamlit Production Pipeline Explicitly
 graph = create_react_agent(model, tools=tools, state_modifier=INITIAL_PROMPT)
-
-# Step 5: Strict Module Exports & Verification Logging
-__all__ = ["graph", "INITIAL_PROMPT"]
 
 logger.info("Academic Research ReAct Graph successfully compiled for Streamlit Cloud production pipeline.")
