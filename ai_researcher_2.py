@@ -15,32 +15,17 @@ from typing_extensions import TypedDict
 from arxiv_tool import search_arxiv_papers
 from read_pdf import read_pdf
 from write_pdf import render_latex_pdf
-import sentence_transformers
-import faiss
-_embedder = None
-
-def _get_embedder():
-    """Jab zaroorat hogi, model tabhi memory mein load hoga"""
-    global _embedder
-    if _embedder is None:
-        from sentence_transformers import SentenceTransformer
-        _embedder = SentenceTransformer("all-MiniLM-L6-v2")
-    return _embedder
-
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
-
 class State(TypedDict):
     messages: Annotated[list, add_messages]
-
 
 @tool
 def safe_arxiv_search(query: str) -> dict:
     """Search arXiv papers with shared throttling and caching safeguards."""
     return search_arxiv_papers(query)
-
 
 tools = [safe_arxiv_search, read_pdf, render_latex_pdf]
 tool_node = ToolNode(tools)
@@ -84,13 +69,10 @@ Keep the response in clean markdown.
 If uploaded document content is present, ground the summary in that content first.
 """
 
-embedder = _get_embedder()
-topic_embedding = embedder.encode(topic, ...)
 def _message_role(message) -> str | None:
     if isinstance(message, dict):
         return message.get("role")
     return getattr(message, "type", None)
-
 
 def _message_content(message) -> str:
     if isinstance(message, dict):
@@ -99,12 +81,10 @@ def _message_content(message) -> str:
         content = getattr(message, "content", "")
     return content if isinstance(content, str) else str(content)
 
-
 def _ensure_system_prompt(messages: list) -> list:
     if any(_message_role(message) == "system" for message in messages):
         return list(messages)
     return [{"role": "system", "content": INITIAL_PROMPT}, *messages]
-
 
 def _latest_user_message(messages: list) -> str:
     for message in reversed(messages):
@@ -112,11 +92,9 @@ def _latest_user_message(messages: list) -> str:
             return _message_content(message)
     return ""
 
-
 def _is_uploaded_document_summary(messages: list) -> bool:
     latest_user = _latest_user_message(messages)
     return 'I uploaded a local PDF named "' in latest_user and "Document content:" in latest_user
-
 
 def _invoke_direct_response(messages: list) -> AIMessage:
     direct_messages = _ensure_system_prompt(messages)
@@ -131,7 +109,6 @@ def _invoke_direct_response(messages: list) -> AIMessage:
     response = base_model.invoke(direct_messages)
     content = response.content if isinstance(response.content, str) else str(response.content)
     return AIMessage(content=content)
-
 
 def call_model(state: State):
     messages = _ensure_system_prompt(state["messages"])
@@ -165,13 +142,11 @@ def call_model(state: State):
 
         raise exc
 
-
 def should_continue(state: State) -> Literal["tools", "__end__"]:
     last_message = state["messages"][-1]
     if hasattr(last_message, "tool_calls") and last_message.tool_calls:
         return "tools"
     return "__end__"
-
 
 workflow = StateGraph(State)
 workflow.add_node("agent", call_model)
@@ -187,10 +162,8 @@ workflow.add_edge("tools", "agent")
 
 checkpointer = MemorySaver()
 
-
 def build_config(thread_id: str) -> dict:
     return {"configurable": {"thread_id": thread_id}}
-
 
 config = build_config("222222")
 graph = workflow.compile(checkpointer=checkpointer)
