@@ -10,6 +10,9 @@ import streamlit as st
 from fpdf import FPDF
 from langchain_core.messages import AIMessage
 from pypdf import PdfReader
+import os
+os.environ["SUPPRESS_GRPC_WARNINGS"] = "1"
+logging.getLogger("google").setLevel(logging.ERROR)
 
 # Explicit, safe imports from production agent architectures
 from ai_researcher import INITIAL_PROMPT, graph
