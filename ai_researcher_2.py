@@ -15,6 +15,17 @@ from typing_extensions import TypedDict
 from arxiv_tool import search_arxiv_papers
 from read_pdf import read_pdf
 from write_pdf import render_latex_pdf
+import sentence_transformers
+import faiss
+_embedder = None
+
+def _get_embedder():
+    """Jab zaroorat hogi, model tabhi memory mein load hoga"""
+    global _embedder
+    if _embedder is None:
+        from sentence_transformers import SentenceTransformer
+        _embedder = SentenceTransformer("all-MiniLM-L6-v2")
+    return _embedder
 
 
 load_dotenv()
@@ -73,7 +84,8 @@ Keep the response in clean markdown.
 If uploaded document content is present, ground the summary in that content first.
 """
 
-
+embedder = _get_embedder()
+topic_embedding = embedder.encode(topic, ...)
 def _message_role(message) -> str | None:
     if isinstance(message, dict):
         return message.get("role")
