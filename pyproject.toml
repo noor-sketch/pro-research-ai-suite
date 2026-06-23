@@ -1,20 +1,15 @@
 [project]
 name = "ai-researcher"
 version = "0.1.0"
-description = "Add your description here"
+description = "Multi-Agent Academic Research Engine"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = "==3.11.*"
 dependencies = [
-    "fpdf2>=2.8.2",
-    "langchain>=0.3.27",
-    "langchain-core>=0.3.72",
-    "langchain-google-genai>=2.1.9",
-    "langchain-groq>=0.2.0",
-    "langgraph>=0.6.3",
-    "pypdf>=5.8.0",
-    "pypdf2>=3.0.1",
-    "python-dotenv>=1.1.1",
-    "requests>=2.32.4",
-    "streamlit>=1.48.0",
-    "typing-extensions>=4.12.2",
+    "streamlit==1.35.0",
+    "langchain-groq",
+    "langgraph",
+    "requests",
+    "fpdf2",
+    "pypdf",
+    "python-dotenv"
 ]
