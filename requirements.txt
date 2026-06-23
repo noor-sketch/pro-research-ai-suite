@@ -1,0 +1,11 @@
+streamlit
+langchain-groq
+langgraph
+pypdf
+fpdf2
+python-dotenv
+arxiv
+typing-extensions
+faiss-cpu
+sentence-transformers
+supabase
