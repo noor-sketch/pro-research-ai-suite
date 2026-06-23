@@ -11,7 +11,8 @@ from fpdf import FPDF
 from langchain_core.messages import AIMessage
 from pypdf import PdfReader
 
-from ai_researcher import INITIAL_PROMPT, build_config, graph
+# Explicit, safe imports from production agent architectures
+from ai_researcher import INITIAL_PROMPT, graph
 from arxiv_tool import clear_arxiv_cache, search_arxiv_papers
 
 
@@ -208,11 +209,9 @@ def fetch_arxiv_pdf_bytes(pdf_url: str) -> bytes:
             return response.content
         except requests.exceptions.HTTPError as e:
             status_code = e.response.status_code if hasattr(e, 'response') else None
-            # Don't retry on client errors (4xx) - the resource doesn't exist
             if status_code and 400 <= status_code < 500:
                 logging.warning(f"PDF not available (HTTP {status_code}): {pdf_url}")
                 raise Exception(f"PDF not available (HTTP {status_code})")
-            # Retry on server errors (5xx)
             if attempt < max_retries - 1:
                 logging.warning(f"PDF download server error (attempt {attempt + 1}/{max_retries}), retrying...")
                 time.sleep(retry_delay)
@@ -262,7 +261,6 @@ def build_chat_input_messages(is_document_request: bool) -> list[dict[str, str]]
             "",
         )
         return [
-            {"role": "system", "content": INITIAL_PROMPT},
             {"role": "user", "content": trim_text(latest_user_message, MAX_DOCUMENT_CHARS)},
         ]
 
@@ -284,7 +282,7 @@ def build_chat_input_messages(is_document_request: bool) -> list[dict[str, str]]
         total_chars += len(trimmed_content)
 
     trimmed_messages.reverse()
-    return [{"role": "system", "content": INITIAL_PROMPT}] + trimmed_messages
+    return trimmed_messages
 
 
 def clear_topic_papers(keep_candidate: bool = True) -> None:
@@ -337,9 +335,13 @@ def update_topic_papers(topic: str) -> None:
 
 def run_research_pipeline(is_document_request: bool) -> None:
     full_response = ""
-    request_config = build_config(
-        f"{st.session_state.session_thread_id}-{st.session_state.request_counter}"
-    )
+    
+    # Standard Web Configuration Map for LangGraph state validation
+    request_config = {
+        "configurable": {
+            "thread_id": f"{st.session_state.session_thread_id}-{st.session_state.request_counter}"
+        }
+    }
     st.session_state.request_counter += 1
 
     chat_input = {"messages": build_chat_input_messages(is_document_request)}
@@ -356,12 +358,8 @@ def run_research_pipeline(is_document_request: bool) -> None:
                     continue
 
                 message = messages[-1]
-                if isinstance(message, AIMessage) and message.content:
-                    full_response = (
-                        message.content
-                        if isinstance(message.content, str)
-                        else str(message.content)
-                    )
+                if hasattr(message, "content") and message.content:
+                    full_response = message.content if isinstance(message.content, str) else str(message.content)
                     response_placeholder.markdown(full_response)
 
             if not full_response:
@@ -384,7 +382,7 @@ def run_research_pipeline(is_document_request: bool) -> None:
                     "The request was larger than the model limit, so only the most recent context was used for an automatic retry."
                 )
                 trimmed_messages = build_chat_input_messages(is_document_request)
-                minimal_messages = [trimmed_messages[0], *trimmed_messages[1:][-2:]]
+                minimal_messages = [trimmed_messages[-1]] if trimmed_messages else chat_input["messages"]
                 retry_input = {"messages": minimal_messages}
                 full_response = ""
                 try:
@@ -393,12 +391,8 @@ def run_research_pipeline(is_document_request: bool) -> None:
                         if not messages:
                             continue
                         message = messages[-1]
-                        if isinstance(message, AIMessage) and message.content:
-                            full_response = (
-                                message.content
-                                if isinstance(message.content, str)
-                                else str(message.content)
-                            )
+                        if hasattr(message, "content") and message.content:
+                            full_response = message.content if isinstance(message.content, str) else str(message.content)
                             response_placeholder.markdown(full_response)
                     if not full_response:
                         raise ValueError("Retry finished without returning text.")
@@ -807,4 +801,3 @@ if pending_document_request or pending_user_request:
     run_research_pipeline(is_document_request=pending_document_request)
 
 render_report_panel()
-# py -3.13 -m streamlit run frontend.py
