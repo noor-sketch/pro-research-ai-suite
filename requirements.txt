@@ -1,9 +1,7 @@
-streamlit==1.32.0
-langchain-groq==0.1.3
-langgraph==0.0.26
-requests==2.31.0
-arxiv==2.1.0
-faiss-cpu==1.8.0
-sentence-transformers==2.5.1
-supabase==2.3.7
-python-dotenv==1.0.1
+streamlit==1.38.0
+langchain-groq
+langgraph
+requests
+arxiv
+supabase
+python-dotenv
