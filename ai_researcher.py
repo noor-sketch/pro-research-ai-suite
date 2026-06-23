@@ -1,10 +1,15 @@
 import os
+import logging
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.prebuilt import create_react_agent
-import logging
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
+from typing import Annotated
+from typing_extensions import TypedDict
+from langgraph.prebuilt import ToolNode
 
-# Tools imports (Ensuring absolute sync with project infrastructure)
+# Tools imports 
 from arxiv_tool import arxiv_search
 from read_pdf import read_pdf
 from write_pdf import render_latex_pdf
@@ -14,16 +19,22 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ai_researcher_prod")
 
-# Step 1: Setup Core Academic Tools Pipeline
-tools = [arxiv_search, read_pdf, render_latex_pdf]
+# Define LangGraph State Schema
+class AgentState(TypedDict):
+    messages: Annotated[list, add_messages]
 
-# Step 2: Initialize Enterprise-Grade LLM (Gemini 1.5 Flash)
+# Step 1: Setup Tools Pipeline
+tools = [arxiv_search, read_pdf, render_latex_pdf]
+tool_node = ToolNode(tools)
+
+# Step 2: Initialize LLM (Gemini 1.5 Flash)
 model = ChatGoogleGenerativeAI(
     model="gemini-1.5-flash", 
-    api_key=os.getenv("GOOGLE_API_KEY")
+    api_key=os.getenv("GOOGLE_API_KEY"),
+    temperature=0.2
 )
 
-# Step 3: Define Global System Prompt for Complex Research Orchestration
+# Step 3: Define Global System Prompt
 INITIAL_PROMPT = """
 You are an expert researcher in the fields of physics, mathematics,
 computer science, quantitative biology, quantitative finance, statistics,
@@ -49,7 +60,40 @@ include mathematical equations in the paper. Once it's complete, you should
 render it as a LaTeX PDF. When you give papers references, always attatch the pdf links to the paper.
 """
 
-# Step 4: Compile the ReAct Agent Graph for Streamlit Production Pipeline Explicitly
-graph = create_react_agent(model, tools=tools, state_modifier=INITIAL_PROMPT)
+# Core Execution Router Node
+def call_model(state: AgentState):
+    messages = state["messages"]
+    # Inject system context cleanly if not present
+    if not any(isinstance(m, dict) and m.get("role") == "system" for m in messages):
+        messages = [{"role": "system", "content": INITIAL_PROMPT}] + messages
+    
+    # Secure tool binding
+    model_with_tools = model.bind_tools(tools)
+    response = model_with_tools.invoke(messages)
+    return {"messages": [response]}
 
-logger.info("Academic Research ReAct Graph successfully compiled for Streamlit Cloud production pipeline.")
+# Conditional routing routing node
+def should_continue(state: AgentState):
+    last_message = state["messages"][-1]
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        return "tools"
+    return "__end__"
+
+# Step 4: Build state graph cleanly to avoid any version type errors
+workflow = StateGraph(AgentState)
+workflow.add_node("agent", call_model)
+workflow.add_node("tools", tool_node)
+
+workflow.add_edge(START, "agent")
+workflow.add_conditional_edges(
+    "agent",
+    should_continue,
+    {"tools": "tools", "__end__": END}
+)
+workflow.add_edge("tools", "agent")
+
+# Compile with transactional memory saver
+checkpointer = MemorySaver()
+graph = workflow.compile(checkpointer=checkpointer)
+
+logger.info("Academic Research Custom StateGraph successfully compiled for Streamlit Production Environment.")
